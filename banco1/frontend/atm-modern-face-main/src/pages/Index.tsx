@@ -13,10 +13,21 @@ const Index = () => {
   const [pin, setPin] = useState("");
   const [amount, setAmount] = useState(0);
 
-  const handleCardSubmit = (card: string) => {
+  const handleCardSubmit = async (card: string) => {
     setCardNumber(card);
-    setStep("pin");
-    toast.success("Tarjeta ingresada correctamente");
+    // Verificar tarjeta
+    try {
+      const response = await fetch(`http://localhost:3000/api/verify?cardNumber=${card}`);
+      const data = await response.json();
+      if (data.valid) {
+        setStep("pin");
+        toast.success("Tarjeta válida");
+      } else {
+        toast.error("Tarjeta inválida");
+      }
+    } catch (error) {
+      toast.error("Error al verificar tarjeta");
+    }
   };
 
   const handlePinSubmit = (pinValue: string) => {
@@ -30,17 +41,25 @@ const Index = () => {
     }, 800);
   };
 
-  const handleAmountSubmit = (amountValue: number) => {
+  const handleAmountSubmit = async (amountValue: number) => {
     setAmount(amountValue);
-    // Simulación de procesamiento
-    toast.loading("Procesando transacción...", { duration: 1500 });
-    
-    setTimeout(() => {
-      setStep("receipt");
-      toast.success("Transacción completada", {
-        description: `Se ha retirado $${amountValue.toLocaleString()} MXN`,
+    // Procesar retiro
+    try {
+      const response = await fetch('http://localhost:3000/api/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardNumber, pin, amount: amountValue })
       });
-    }, 1500);
+      const data = await response.json();
+      if (data.success) {
+        setStep("receipt");
+        toast.success(data.message);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error("Error en la transacción");
+    }
   };
 
   const handleFinish = () => {

@@ -48,19 +48,20 @@ export const PinInput = ({ onSubmit, onBack }: PinInputProps) => {
           </p>
         </div>
 
-        <div className="bg-card border border-accent/20 rounded-lg p-6 text-center min-h-[80px] flex items-center justify-center">
-          <div className="flex gap-4">
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
-                  pin.length > i
-                    ? "bg-accent border-accent scale-110"
-                    : "border-muted-foreground"
-                }`}
-              />
-            ))}
-          </div>
+        <div className={`bg-card border rounded-lg p-6 text-center min-h-[80px] flex items-center justify-center transition-colors ${
+          pin.length === 4 ? 'border-accent/20' : pin.length > 0 ? 'border-red-500/50' : 'border-accent/20'
+        }`}>
+          <input
+            type="password"
+            value={pin}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+              setPin(value);
+            }}
+            placeholder="****"
+            className="text-3xl font-mono tracking-widest text-accent bg-transparent border-none outline-none text-center w-32"
+            maxLength={4}
+          />
         </div>
 
         <div className="text-center space-y-2">

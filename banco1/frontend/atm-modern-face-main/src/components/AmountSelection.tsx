@@ -81,10 +81,19 @@ export const AmountSelection = ({ onSubmit, onBack }: AmountSelectionProps) => {
           </>
         ) : (
           <>
-            <div className="bg-card border border-accent/20 rounded-lg p-6 text-center min-h-[80px] flex items-center justify-center">
-              <span className="text-4xl font-bold text-accent">
-                ${customAmount || "0"}
-              </span>
+            <div className={`bg-card border rounded-lg p-6 text-center min-h-[80px] flex items-center justify-center transition-colors ${
+              parseInt(customAmount) >= 100 && parseInt(customAmount) <= 10000 ? 'border-accent/20' : customAmount ? 'border-red-500/50' : 'border-accent/20'
+            }`}>
+              <input
+                type="text"
+                value={customAmount}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setCustomAmount(value);
+                }}
+                placeholder="0"
+                className="text-4xl font-bold text-accent bg-transparent border-none outline-none text-center w-full"
+              />
             </div>
 
             <div className="text-center text-sm text-muted-foreground">

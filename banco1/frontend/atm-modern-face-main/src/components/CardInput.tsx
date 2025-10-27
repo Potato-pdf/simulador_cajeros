@@ -51,10 +51,20 @@ export const CardInput = ({ onSubmit }: CardInputProps) => {
           </p>
         </div>
 
-        <div className="bg-card border border-primary/20 rounded-lg p-6 text-center min-h-[80px] flex items-center justify-center">
-          <span className="text-3xl font-mono tracking-widest text-primary">
-            {formatCardNumber(cardNumber) || "---- ---- ---- ----"}
-          </span>
+        <div className={`bg-card border rounded-lg p-6 text-center min-h-[80px] flex items-center justify-center transition-colors ${
+          cardNumber.length === 16 ? 'border-primary/20' : cardNumber.length > 0 ? 'border-red-500/50' : 'border-primary/20'
+        }`}>
+          <input
+            type="text"
+            value={formatCardNumber(cardNumber)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\s/g, '').replace(/\D/g, '').slice(0, 16);
+              setCardNumber(value);
+            }}
+            placeholder="---- ---- ---- ----"
+            className="text-3xl font-mono tracking-widest text-primary bg-transparent border-none outline-none text-center w-full"
+            autoFocus
+          />
         </div>
 
         <div className="text-center text-sm text-muted-foreground">
