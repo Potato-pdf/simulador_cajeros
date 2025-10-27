@@ -25,7 +25,7 @@ export class WithdrawCommandHandler {
       }
 
       // Determinar si es mismo banco
-      const isSameBank = command.cardNumber.startsWith('1'); // Asumir banco 1 tarjetas empiezan con 1
+      const isSameBank = command.cardNumber.startsWith('11'); // Banco 1 tarjetas empiezan con 11
 
       if (isSameBank) {
         // Descontar de cuenta y cajero
@@ -41,14 +41,22 @@ export class WithdrawCommandHandler {
           banco_origen: 'banco1',
         });
       } else {
-        // Interbanco: descontar cajero, y llamar a API de banco 2 para descontar cuenta
+        // Interbanco: llamar a API de banco 2 para procesar retiro
+        const res = await fetch('http://localhost:3001/api/withdraw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardNumber: command.cardNumber,
+            pin: command.pin,
+            amount: command.amount,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          return { success: false, message: data.message || 'Error interbancario en banco2' };
+        }
+        // Registrar transacción local
         await CajeroService.descontarSaldo(command.amount);
-
-        // Aquí preparar llamada a API de banco 2
-        // Por ejemplo, fetch('http://localhost:3001/api/withdraw', { method: 'POST', body: JSON.stringify({ cardNumber: command.cardNumber, amount: command.amount }) })
-        // Asumir que devuelve success
-
-        // Registrar transacción
         await TransaccionService.registrarTransaccion({
           cuenta_id: cuenta.id,
           tipo: 'retiro',
