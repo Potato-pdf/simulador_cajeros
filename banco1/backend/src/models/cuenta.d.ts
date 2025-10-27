@@ -1,4 +1,4 @@
-import { uuid } from "./uuid";
+import { uuid } from "../utils/types";
 
 export interface Cuenta {
   id: uuid;
