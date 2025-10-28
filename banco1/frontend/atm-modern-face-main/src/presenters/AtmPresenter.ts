@@ -1,7 +1,16 @@
-export class AtmPresenter {
-  private view: any;
+export interface AtmView {
+  onCardValid(): void;
+  onCardInvalid(): void;
+  onPinValid(): void;
+  onWithdrawSuccess(message: string): void;
+  onWithdrawError(message: string): void;
+  onError(message: string): void;
+}
 
-  constructor(view: any) {
+export class AtmPresenter {
+  private view: AtmView;
+
+  constructor(view: AtmView) {
     this.view = view;
   }
 
@@ -19,7 +28,17 @@ export class AtmPresenter {
     }
   }
 
+  async verifyPin(pin: string) {
+    // Simulación de verificación PIN (podría verificarse en backend si es necesario)
+    if (pin.length === 4) {
+      this.view.onPinValid();
+    } else {
+      this.view.onError("PIN inválido");
+    }
+  }
+
   async withdraw(cardNumber: string, pin: string, amount: number) {
+    console.log('AtmPresenter banco1: Withdraw llamado con', cardNumber, pin, amount);
     try {
       const response = await fetch('http://localhost:3000/api/withdraw', {
         method: 'POST',
@@ -27,12 +46,14 @@ export class AtmPresenter {
         body: JSON.stringify({ cardNumber, pin, amount })
       });
       const data = await response.json();
+      console.log('AtmPresenter banco1: Respuesta withdraw', data);
       if (data.success) {
         this.view.onWithdrawSuccess(data.message);
       } else {
         this.view.onWithdrawError(data.message);
       }
     } catch (error) {
+      console.log('AtmPresenter banco1: Error en withdraw', error);
       this.view.onError("Error en la transacción");
     }
   }
