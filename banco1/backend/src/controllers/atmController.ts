@@ -1,16 +1,20 @@
 import { WithdrawCommandHandler } from "../cqrs/commands/WithdrawCommandHandler";
 import { GetAccountQueryHandler } from "../cqrs/queries/GetAccountQueryHandler";
 import { CreateAccountCommandHandler } from "../cqrs/commands/CreateAccountCommandHandler";
+import { ExternalBankService } from "../domain/services/ExternalBankService";
 
 export class AtmController {
   static async verifyCard(req: any, res: any) {
     try {
       const { cardNumber } = req.query;
-      const account = await GetAccountQueryHandler.handle({ cardNumber });
-      if (account) {
-        res.json({ valid: true });
+      const isLocal = cardNumber.startsWith('11');
+      if (isLocal) {
+        const account = await GetAccountQueryHandler.handle({ cardNumber });
+        res.json({ valid: !!account });
       } else {
-        res.json({ valid: false });
+        // Interbanco: verificar via ExternalBankService
+        const valid = await ExternalBankService.verifyCard(cardNumber);
+        res.json({ valid });
       }
     } catch (error: any) {
       res.status(500).json({ error: "Error interno del servidor" });
