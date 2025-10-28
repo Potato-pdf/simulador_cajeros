@@ -2,22 +2,12 @@ import type { WithdrawCommand } from "./WithdrawCommand";
 import { CuentaService } from "../../domain/services/CuentaService";
 import { CajeroService } from "../../domain/services/CajeroService";
 import { TransaccionService } from "../../domain/services/TransaccionService";
+import { ExternalBankService } from "../../domain/services/ExternalBankService";
 
 export class WithdrawCommandHandler {
   static async handle(command: WithdrawCommand): Promise<{ success: boolean; message: string }> {
+    console.log('WithdrawCommandHandler banco1: Comando recibido', command);
     try {
-      // Verificar cuenta
-      const cuenta = await CuentaService.verificarCuenta(command.cardNumber, command.pin);
-      if (!cuenta) {
-        return { success: false, message: "Tarjeta o PIN incorrecto" };
-      }
-
-      // Verificar saldo cuenta
-      const saldoSuficienteCuenta = await CuentaService.verificarSaldo(cuenta, command.amount);
-      if (!saldoSuficienteCuenta) {
-        return { success: false, message: "Saldo insuficiente en la cuenta" };
-      }
-
       // Verificar saldo cajero
       const saldoSuficienteCajero = await CajeroService.verificarSaldo(command.amount);
       if (!saldoSuficienteCajero) {
@@ -25,9 +15,22 @@ export class WithdrawCommandHandler {
       }
 
       // Determinar si es mismo banco
-      const isSameBank = command.cardNumber.startsWith('11'); // Banco 1 tarjetas empiezan con 11
+      const isSameBank = command.cardNumber.startsWith('11');
+      console.log('WithdrawCommandHandler banco1: isSameBank', isSameBank, 'for', command.cardNumber);
 
       if (isSameBank) {
+        // Verificar cuenta
+        const cuenta = await CuentaService.verificarCuenta(command.cardNumber, command.pin);
+        if (!cuenta) {
+          return { success: false, message: "Tarjeta o PIN incorrecto" };
+        }
+
+        // Verificar saldo cuenta
+        const saldoSuficienteCuenta = await CuentaService.verificarSaldo(cuenta, command.amount);
+        if (!saldoSuficienteCuenta) {
+          return { success: false, message: "Saldo insuficiente en la cuenta" };
+        }
+
         // Descontar de cuenta y cajero
         await CuentaService.descontarSaldo(cuenta.id, command.amount);
         await CajeroService.descontarSaldo(command.amount);
@@ -41,24 +44,18 @@ export class WithdrawCommandHandler {
           banco_origen: 'banco1',
         });
       } else {
-        // Interbanco: llamar a API de banco 2 para procesar retiro
-        const res = await fetch('http://localhost:3001/api/withdraw', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cardNumber: command.cardNumber,
-            pin: command.pin,
-            amount: command.amount,
-          }),
-        });
-        const data = await res.json();
-        if (!data.success) {
-          return { success: false, message: data.message || 'Error interbancario en banco2' };
+        console.log('WithdrawCommandHandler banco1: Retiro interbancario para', command.cardNumber);
+        // Interbanco: usar ExternalBankService
+        const interbankResult = await ExternalBankService.performInterbankWithdrawal(command.cardNumber, command.pin, command.amount);
+        console.log('WithdrawCommandHandler banco1: Resultado interbanco', interbankResult);
+        if (!interbankResult.success) {
+          return { success: false, message: interbankResult.message };
         }
-        // Registrar transacción local
+        // Descontar cajero local
         await CajeroService.descontarSaldo(command.amount);
+        // Registrar transacción local (sin cuenta_id, ya que es externa)
         await TransaccionService.registrarTransaccion({
-          cuenta_id: cuenta.id,
+          cuenta_id: 'interbanco', // Placeholder
           tipo: 'retiro',
           monto: command.amount,
           fecha: new Date(),
