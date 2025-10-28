@@ -12,7 +12,7 @@ export class CreateAccountCommandHandler {
     let cardNumber: string;
     let attempts = 0;
     do {
-      cardNumber = "2" + Math.floor(Math.random() * 1e15).toString().padStart(15, '0'); // Para banco 2
+      cardNumber = "22" + Math.floor(Math.random() * 1e14).toString().padStart(14, '0'); // Para banco 2, 16 dígitos total
       attempts++;
       if (attempts > 10) {
         throw new Error("No se pudo generar un número de tarjeta único");

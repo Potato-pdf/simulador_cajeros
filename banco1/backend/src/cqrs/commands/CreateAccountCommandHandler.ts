@@ -13,7 +13,7 @@ export class CreateAccountCommandHandler {
     let cardNumber: string;
     let attempts = 0;
     do {
-      cardNumber = "1" + generarNumero16().slice(1); // Para banco 1
+      cardNumber = "11" + generarNumero16().slice(2); // Para banco 1, 16 dígitos total
       attempts++;
       if (attempts > 10) {
         throw new Error("No se pudo generar un número de tarjeta único");
