@@ -18,7 +18,7 @@ export class ExternalBankService {
         body: JSON.stringify({ cardNumber, pin, amount }),
       });
       console.log('ExternalBankService: Respuesta status', response.status);
-      const data = await response.json();
+      const data : any = await response.json();
       console.log('ExternalBankService: Datos recibidos', data);
       return { success: data.success, message: data.message || 'Error interbancario' };
     } catch (error) {
