@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { LoginScreen } from "@/components/login-screen"
 import { WithdrawalScreen } from "@/components/withdrawal-screen"
 import { ReceiptScreen } from "@/components/receipt-screen"
+import { AtmPresenter, AtmView } from "@/presenters/AtmPresenter"
 
 export type Transaction = {
   cardNumber: string
@@ -12,74 +13,84 @@ export type Transaction = {
   transactionId: string
 }
 
+class PageView implements AtmView {
+  private setStep: (step: "login" | "withdrawal" | "receipt") => void;
+  private setTransaction: (transaction: Transaction | null) => void;
+  private setGlobalError: (error: string) => void;
+  private transaction: Transaction | null;
+  private pin: string;
+
+  constructor(
+    setStep: (step: "login" | "withdrawal" | "receipt") => void,
+    setTransaction: (transaction: Transaction | null) => void,
+    setGlobalError: (error: string) => void,
+    transaction: Transaction | null,
+    pin: string
+  ) {
+    this.setStep = setStep;
+    this.setTransaction = setTransaction;
+    this.setGlobalError = setGlobalError;
+    this.transaction = transaction;
+    this.pin = pin;
+  }
+
+  onLoginSuccess(cardNumber: string, pin: string) {
+    this.setTransaction({
+      cardNumber,
+      amount: 0,
+      date: new Date(),
+      transactionId: Math.random().toString(36).substring(2, 15).toUpperCase(),
+    });
+    this.setStep("withdrawal");
+  }
+
+  onLoginError(message: string) {
+    this.setGlobalError(message);
+  }
+
+  onWithdrawSuccess() {
+    this.setStep("receipt");
+  }
+
+  onWithdrawError(message: string) {
+    this.setGlobalError(message);
+  }
+
+  onError(message: string) {
+    this.setGlobalError(message);
+  }
+}
+
 export default function ATMPage() {
   const [step, setStep] = useState<"login" | "withdrawal" | "receipt">("login")
   const [transaction, setTransaction] = useState<Transaction | null>(null)
   const [pin, setPin] = useState<string>("")
-
-
-  // Estado para errores globales
   const [globalError, setGlobalError] = useState<string>("")
+  const [presenter, setPresenter] = useState<AtmPresenter | null>(null);
 
-  // Conexión real con backend
+  useEffect(() => {
+    const view = new PageView(setStep, setTransaction, setGlobalError, transaction, pin);
+    const atmPresenter = new AtmPresenter(view);
+    setPresenter(atmPresenter);
+  }, [transaction, pin]);
+
   const handleLogin = async (cardNumber: string, pinValue: string) => {
     setGlobalError("")
-    try {
-      // Verifica tarjeta
-      const verifyRes = await fetch(`http://localhost:3001/api/verify?cardNumber=${cardNumber}`)
-      const verifyData = await verifyRes.json()
-      if (!verifyData.valid) {
-        setGlobalError("Tarjeta no válida o no encontrada.")
-        return
-      }
-      // Si la tarjeta existe, guarda el pin y pasa a retiro
-      setPin(pinValue)
-      setTransaction({
-        cardNumber,
-        amount: 0,
-        date: new Date(),
-        transactionId: Math.random().toString(36).substring(2, 15).toUpperCase(),
-      })
-      setStep("withdrawal")
-    } catch (err) {
-      setGlobalError("Error de conexión con el backend.")
+    setPin(pinValue);
+    if (presenter) {
+      await presenter.login(cardNumber, pinValue);
     }
   }
 
   const handleWithdrawal = async (amount: number) => {
     setGlobalError("")
-    if (transaction) {
-      try {
-        // Determinar si la tarjeta es local (banco2) o remota (banco1)
-        // Ejemplo: banco2 tarjetas empiezan con '22', banco1 con '11' (ajusta según tu lógica real)
-        const isLocal = transaction.cardNumber.startsWith("22")
-        const apiUrl = isLocal
-          ? "http://localhost:3001/api/withdraw"
-          : "http://localhost:3000/api/withdraw"
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cardNumber: transaction.cardNumber,
-            pin,
-            amount,
-          }),
-        })
-        const data = await res.json()
-        if (!data.success) {
-          setGlobalError(data.error || data.message || "No se pudo realizar el retiro.")
-          return
-        }
-        setTransaction({
-          ...transaction,
-          amount,
-          date: new Date(),
-          transactionId: data.transactionId || transaction.transactionId,
-        })
-        setStep("receipt")
-      } catch (err) {
-        setGlobalError("Error de conexión con el backend.")
-      }
+    if (transaction && presenter) {
+      await presenter.withdraw(transaction.cardNumber, pin, amount);
+      setTransaction({
+        ...transaction,
+        amount,
+        date: new Date(),
+      });
     }
   }
 

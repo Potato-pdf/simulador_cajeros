@@ -1,64 +1,98 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CardInput } from "@/components/CardInput";
 import { PinInput } from "@/components/PinInput";
 import { AmountSelection } from "@/components/AmountSelection";
 import { TransactionReceipt } from "@/components/TransactionReceipt";
 import { toast } from "sonner";
+import { AtmPresenter, AtmView } from "@/presenters/AtmPresenter";
 
 type Step = "card" | "pin" | "amount" | "receipt";
+
+class IndexView implements AtmView {
+  private setStep: (step: Step) => void;
+  private setCardNumber: (card: string) => void;
+  private cardNumber: string;
+  private pin: string;
+  private amount: number;
+  private setAmount: (amount: number) => void;
+
+  constructor(
+    setStep: (step: Step) => void,
+    setCardNumber: (card: string) => void,
+    cardNumber: string,
+    pin: string,
+    amount: number,
+    setAmount: (amount: number) => void
+  ) {
+    this.setStep = setStep;
+    this.setCardNumber = setCardNumber;
+    this.cardNumber = cardNumber;
+    this.pin = pin;
+    this.amount = amount;
+    this.setAmount = setAmount;
+  }
+
+  onCardValid() {
+    this.setStep("pin");
+    toast.success("Tarjeta válida");
+  }
+
+  onCardInvalid() {
+    toast.error("Tarjeta inválida");
+  }
+
+  onPinValid() {
+    this.setStep("amount");
+    toast.success("PIN verificado correctamente", {
+      description: "Acceso autorizado",
+    });
+  }
+
+  onWithdrawSuccess(message: string) {
+    this.setStep("receipt");
+    toast.success(message);
+  }
+
+  onWithdrawError(message: string) {
+    toast.error(message);
+  }
+
+  onError(message: string) {
+    toast.error(message);
+  }
+}
 
 const Index = () => {
   const [step, setStep] = useState<Step>("card");
   const [cardNumber, setCardNumber] = useState("");
   const [pin, setPin] = useState("");
   const [amount, setAmount] = useState(0);
+  const [presenter, setPresenter] = useState<AtmPresenter | null>(null);
+
+  useEffect(() => {
+    const view = new IndexView(setStep, setCardNumber, cardNumber, pin, amount, setAmount);
+    const atmPresenter = new AtmPresenter(view);
+    setPresenter(atmPresenter);
+  }, [cardNumber, pin, amount]);
 
   const handleCardSubmit = async (card: string) => {
     setCardNumber(card);
-    // Verificar tarjeta
-    try {
-      const response = await fetch(`http://localhost:3000/api/verify?cardNumber=${card}`);
-      const data = await response.json();
-      if (data.valid) {
-        setStep("pin");
-        toast.success("Tarjeta válida");
-      } else {
-        toast.error("Tarjeta inválida");
-      }
-    } catch (error) {
-      toast.error("Error al verificar tarjeta");
+    if (presenter) {
+      await presenter.verifyCard(card);
     }
   };
 
   const handlePinSubmit = (pinValue: string) => {
     setPin(pinValue);
-    // Simulación de verificación
-    setTimeout(() => {
-      setStep("amount");
-      toast.success("PIN verificado correctamente", {
-        description: "Acceso autorizado",
-      });
-    }, 800);
+    if (presenter) {
+      presenter.verifyPin(pinValue);
+    }
   };
 
   const handleAmountSubmit = async (amountValue: number) => {
     setAmount(amountValue);
-    // Procesar retiro
-    try {
-      const response = await fetch('http://localhost:3000/api/withdraw', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardNumber, pin, amount: amountValue })
-      });
-      const data = await response.json();
-      if (data.success) {
-        setStep("receipt");
-        toast.success(data.message);
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      toast.error("Error en la transacción");
+    if (presenter) {
+      await presenter.withdraw(cardNumber, pin, amountValue);
     }
   };
 
