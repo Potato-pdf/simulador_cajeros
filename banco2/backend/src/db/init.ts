@@ -1,5 +1,6 @@
 import { db_connection } from "./db_connection";
 import { CajeroDao } from "../daos/cajeroDao";
+import { seedDatabase } from "./seed";
 
 export async function initDatabase() {
   return new Promise<void>((resolve, reject) => {
@@ -37,6 +38,7 @@ export async function initDatabase() {
           reject(err);
         } else {
           await CajeroDao.createIfNotExists();
+          await seedDatabase();
           resolve();
         }
       });
