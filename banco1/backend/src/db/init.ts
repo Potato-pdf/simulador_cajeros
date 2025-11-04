@@ -37,9 +37,7 @@ export async function initDatabase() {
         if (err) {
           reject(err);
         } else {
-          // Inicializar cajero si no existe
           await CajeroDao.createIfNotExists();
-          // Seed data
           await seedDatabase();
           resolve();
         }

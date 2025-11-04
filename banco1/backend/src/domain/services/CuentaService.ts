@@ -15,7 +15,6 @@ export class CuentaService {
   }
 
   static async descontarSaldo(cuentaId: string, monto: number): Promise<void> {
-    // Obtener saldo actual
     const cuenta = await CuentaDao.findById(cuentaId);
     if (!cuenta) throw new Error('Cuenta no encontrada');
     const newSaldo = cuenta.saldo - monto;

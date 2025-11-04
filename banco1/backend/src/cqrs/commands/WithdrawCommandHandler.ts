@@ -5,16 +5,18 @@ import { TransaccionService } from "../../domain/services/TransaccionService";
 import { ExternalBankService } from "../../domain/services/ExternalBankService";
 
 export class WithdrawCommandHandler {
-  static async handle(command: WithdrawCommand): Promise<{ success: boolean; message: string }> {
+  static async handle(command: WithdrawCommand & { isInterbankRequest?: boolean }): Promise<{ success: boolean; message: string }> {
     console.log('WithdrawCommandHandler banco1: Comando recibido', command);
     try {
-      const saldoSuficienteCajero = await CajeroService.verificarSaldo(command.amount);
-      if (!saldoSuficienteCajero) {
-        return { success: false, message: "Saldo insuficiente en el cajero" };
+      if (!command.isInterbankRequest) {
+        const saldoSuficienteCajero = await CajeroService.verificarSaldo(command.amount);
+        if (!saldoSuficienteCajero) {
+          return { success: false, message: "Saldo insuficiente en el cajero" };
+        }
       }
 
       const isSameBank = command.cardNumber.startsWith('11');
-      console.log('WithdrawCommandHandler banco1: isSameBank', isSameBank, 'for', command.cardNumber);
+      console.log('WithdrawCommandHandler banco1: isSameBank', isSameBank, 'for', command.cardNumber, 'isInterbankRequest:', command.isInterbankRequest);
 
       if (isSameBank) {
         const cuenta = await CuentaService.verificarCuenta(command.cardNumber, command.pin);
@@ -28,7 +30,10 @@ export class WithdrawCommandHandler {
         }
 
         await CuentaService.descontarSaldo(cuenta.id, command.amount);
-        await CajeroService.descontarSaldo(command.amount);
+        
+        if (!command.isInterbankRequest) {
+          await CajeroService.descontarSaldo(command.amount);
+        }
 
         await TransaccionService.registrarTransaccion({
           cuenta_id: cuenta.id,

@@ -12,4 +12,3 @@ export const db_write_connection = new sqlite3.Database(db_path, (err) => {
     console.log("Connected to the write SQLite database.");
   }
 });
-

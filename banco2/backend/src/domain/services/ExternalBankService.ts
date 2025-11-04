@@ -14,7 +14,7 @@ export class ExternalBankService {
       const response = await fetch('http://localhost:3000/api/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardNumber, pin, amount }),
+        body: JSON.stringify({ cardNumber, pin, amount, isInterbankRequest: true }),
       });
       const data : any = await response.json();
       return { success: data.success, message: data.message || 'Error interbancario' };

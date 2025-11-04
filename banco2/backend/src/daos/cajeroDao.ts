@@ -39,7 +39,7 @@ export class CajeroDao {
     return new Promise((resolve, reject) => {
       db_connection.run(
         "INSERT OR IGNORE INTO cajeros (id, saldo) VALUES (?, ?)",
-        [CAJERO_ID, 10000], // Saldo inicial
+        [CAJERO_ID, 1000],
         function (err) {
           if (err) {
             reject(err);

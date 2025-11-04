@@ -11,15 +11,14 @@ export class AtmController {
       const account = await GetAccountQueryHandler.handle({ cardNumber });
       res.json({ valid: !!account });
     } else {
-      // Interbanco: verificar via ExternalBankService
       const valid = await ExternalBankService.verifyCard(cardNumber);
       res.json({ valid });
     }
   }
 
   static async withdraw(req: any, res: any) {
-    const { cardNumber, pin, amount } = req.body;
-    const result = await WithdrawCommandHandler.handle({ cardNumber, pin, amount: parseFloat(amount) });
+    const { cardNumber, pin, amount, isInterbankRequest } = req.body;
+    const result = await WithdrawCommandHandler.handle({ cardNumber, pin, amount: parseFloat(amount), isInterbankRequest });
     res.json(result);
   }
 
