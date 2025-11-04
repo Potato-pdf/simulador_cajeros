@@ -4,116 +4,104 @@ import { PinInput } from "@/components/PinInput";
 import { AmountSelection } from "@/components/AmountSelection";
 import { TransactionReceipt } from "@/components/TransactionReceipt";
 import { toast } from "sonner";
-import { AtmPresenter, AtmView } from "@/presenters/AtmPresenter";
+import { AtmViewModel } from "@/viewmodels/AtmViewModel";
 
-type Step = "card" | "pin" | "amount" | "receipt";
-
-class IndexView implements AtmView {
-  private setStep: (step: Step) => void;
-  private setCardNumber: (card: string) => void;
-  private cardNumber: string;
-  private pin: string;
-  private amount: number;
-  private setAmount: (amount: number) => void;
-
-  constructor(
-    setStep: (step: Step) => void,
-    setCardNumber: (card: string) => void,
-    cardNumber: string,
-    pin: string,
-    amount: number,
-    setAmount: (amount: number) => void
-  ) {
-    this.setStep = setStep;
-    this.setCardNumber = setCardNumber;
-    this.cardNumber = cardNumber;
-    this.pin = pin;
-    this.amount = amount;
-    this.setAmount = setAmount;
-  }
-
-  onCardValid() {
-    this.setStep("pin");
-    toast.success("Tarjeta válida");
-  }
-
-  onCardInvalid() {
-    toast.error("Tarjeta inválida");
-  }
-
-  onPinValid() {
-    this.setStep("amount");
-    toast.success("PIN verificado correctamente", {
-      description: "Acceso autorizado",
-    });
-  }
-
-  onWithdrawSuccess(message: string) {
-    this.setStep("receipt");
-    toast.success(message);
-  }
-
-  onWithdrawError(message: string) {
-    toast.error(message);
-  }
-
-  onError(message: string) {
-    toast.error(message);
-  }
-}
-
+/**
+ * Index Component - MVVM Pattern
+ * 
+ * Este componente implementa el patrón MVVM donde:
+ * - ViewModel (AtmViewModel): Mantiene el estado reactivo con observables
+ * - View (Index): Se suscribe a los observables del ViewModel
+ * - Binding automático: Los cambios en ViewModel se reflejan automáticamente en la View
+ */
 const Index = () => {
-  const [step, setStep] = useState<Step>("card");
+  // Crear instancia única del ViewModel
+  const [viewModel] = useState(() => new AtmViewModel());
+
+  // Estados locales de React que se sincronizan con el ViewModel
+  const [step, setStep] = useState("card");
   const [cardNumber, setCardNumber] = useState("");
   const [pin, setPin] = useState("");
   const [amount, setAmount] = useState(0);
-  const [presenter, setPresenter] = useState<AtmPresenter | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
+  // MVVM Binding: Suscribirse a los observables del ViewModel
   useEffect(() => {
-    const view = new IndexView(setStep, setCardNumber, cardNumber, pin, amount, setAmount);
-    const atmPresenter = new AtmPresenter(view);
-    setPresenter(atmPresenter);
-  }, [cardNumber, pin, amount]);
+    const stepSubscription = viewModel.step$.subscribe((newStep) => {
+      setStep(newStep as any);
+    });
 
+    const cardSubscription = viewModel.cardNumber$.subscribe((newCard) => {
+      setCardNumber(newCard);
+    });
+
+    const pinSubscription = viewModel.pin$.subscribe((newPin) => {
+      setPin(newPin);
+    });
+
+    const amountSubscription = viewModel.amount$.subscribe((newAmount) => {
+      setAmount(newAmount);
+    });
+
+    const errorSubscription = viewModel.errorMessage$.subscribe((error) => {
+      setErrorMessage(error);
+      if (error) {
+        toast.error(error);
+      }
+    });
+
+    const loadingSubscription = viewModel.isLoading$.subscribe((loading) => {
+      setIsLoading(loading);
+    });
+
+    // Cleanup: desuscribirse cuando el componente se desmonta
+    return () => {
+      stepSubscription.unsubscribe();
+      cardSubscription.unsubscribe();
+      pinSubscription.unsubscribe();
+      amountSubscription.unsubscribe();
+      errorSubscription.unsubscribe();
+      loadingSubscription.unsubscribe();
+    };
+  }, [viewModel]);
+
+  // Event Handlers que invocan comandos del ViewModel
   const handleCardSubmit = async (card: string) => {
-    setCardNumber(card);
-    if (presenter) {
-      await presenter.verifyCard(card);
-    }
+    await viewModel.verifyCard(card);
   };
 
   const handlePinSubmit = (pinValue: string) => {
-    setPin(pinValue);
-    if (presenter) {
-      presenter.verifyPin(pinValue);
-    }
+    viewModel.verifyPin(pinValue).then((success) => {
+      if (success) {
+        toast.success("PIN verificado correctamente", {
+          description: "Acceso autorizado",
+        });
+      }
+    });
   };
 
   const handleAmountSubmit = async (amountValue: number) => {
-    setAmount(amountValue);
-    if (presenter) {
-      await presenter.withdraw(cardNumber, pin, amountValue);
+    const success = await viewModel.withdraw(amountValue);
+    if (success) {
+      toast.success("Retiro exitoso");
     }
   };
 
   const handleFinish = () => {
-    setStep("card");
-    setCardNumber("");
-    setPin("");
-    setAmount(0);
+    viewModel.resetSession();
     toast.info("Sesión finalizada", {
       description: "Gracias por usar nuestros servicios",
     });
   };
 
   const handleBackToCard = () => {
-    setStep("card");
-    setCardNumber("");
+    viewModel.goToStep("card");
     toast.info("Regresando al inicio");
   };
 
   const handleBackToPin = () => {
-    setStep("pin");
+    viewModel.goToStep("pin");
     toast.info("Regresando a verificación");
   };
 
@@ -122,7 +110,9 @@ const Index = () => {
       <div className="w-full max-w-4xl">
         {step === "card" && <CardInput onSubmit={handleCardSubmit} />}
         {step === "pin" && <PinInput onSubmit={handlePinSubmit} onBack={handleBackToCard} />}
-        {step === "amount" && <AmountSelection onSubmit={handleAmountSubmit} onBack={handleBackToPin} />}
+        {step === "amount" && (
+          <AmountSelection onSubmit={handleAmountSubmit} onBack={handleBackToPin} />
+        )}
         {step === "receipt" && (
           <TransactionReceipt
             cardNumber={cardNumber}

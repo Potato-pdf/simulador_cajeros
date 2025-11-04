@@ -3,7 +3,7 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, Printer, Home } from "lucide-react"
-import type { Transaction } from "@/app/page"
+import type { Transaction } from "@/viewmodels/AtmViewModel"
 
 type ReceiptScreenProps = {
   transaction: Transaction

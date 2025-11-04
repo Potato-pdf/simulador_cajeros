@@ -4,105 +4,70 @@ import { useState, useEffect } from "react"
 import { LoginScreen } from "@/components/login-screen"
 import { WithdrawalScreen } from "@/components/withdrawal-screen"
 import { ReceiptScreen } from "@/components/receipt-screen"
-import { AtmPresenter, AtmView } from "@/presenters/AtmPresenter"
+import { AtmViewModel, Transaction } from "@/viewmodels/AtmViewModel"
 
-export type Transaction = {
-  cardNumber: string
-  amount: number
-  date: Date
-  transactionId: string
-}
-
-class PageView implements AtmView {
-  private setStep: (step: "login" | "withdrawal" | "receipt") => void;
-  private setTransaction: (transaction: Transaction | null) => void;
-  private setGlobalError: (error: string) => void;
-  private transaction: Transaction | null;
-  private pin: string;
-
-  constructor(
-    setStep: (step: "login" | "withdrawal" | "receipt") => void,
-    setTransaction: (transaction: Transaction | null) => void,
-    setGlobalError: (error: string) => void,
-    transaction: Transaction | null,
-    pin: string
-  ) {
-    this.setStep = setStep;
-    this.setTransaction = setTransaction;
-    this.setGlobalError = setGlobalError;
-    this.transaction = transaction;
-    this.pin = pin;
-  }
-
-  onLoginSuccess(cardNumber: string, pin: string) {
-    this.setTransaction({
-      cardNumber,
-      amount: 0,
-      date: new Date(),
-      transactionId: Math.random().toString(36).substring(2, 15).toUpperCase(),
-    });
-    this.setStep("withdrawal");
-  }
-
-  onLoginError(message: string) {
-    this.setGlobalError(message);
-  }
-
-  onWithdrawSuccess() {
-    this.setStep("receipt");
-  }
-
-  onWithdrawError(message: string) {
-    this.setGlobalError(message);
-  }
-
-  onError(message: string) {
-    this.setGlobalError(message);
-  }
-}
-
+/**
+ * ATMPage Component - MVVM Pattern
+ * 
+ * Este componente implementa el patrón MVVM donde:
+ * - ViewModel (AtmViewModel): Mantiene el estado reactivo con observables
+ * - View (ATMPage): Se suscribe a los observables del ViewModel
+ * - Binding automático: Los cambios en ViewModel se reflejan automáticamente en la View
+ */
 export default function ATMPage() {
+  // Crear instancia única del ViewModel
+  const [viewModel] = useState(() => new AtmViewModel());
+
+  // Estados locales de React que se sincronizan con el ViewModel
   const [step, setStep] = useState<"login" | "withdrawal" | "receipt">("login")
   const [transaction, setTransaction] = useState<Transaction | null>(null)
-  const [pin, setPin] = useState<string>("")
-  const [globalError, setGlobalError] = useState<string>("")
-  const [presenter, setPresenter] = useState<AtmPresenter | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("")
+  const [isLoading, setIsLoading] = useState<boolean>(false)
 
+  // MVVM Binding: Suscribirse a los observables del ViewModel
   useEffect(() => {
-    const view = new PageView(setStep, setTransaction, setGlobalError, transaction, pin);
-    const atmPresenter = new AtmPresenter(view);
-    setPresenter(atmPresenter);
-  }, [transaction, pin]);
+    const stepSubscription = viewModel.step$.subscribe((newStep) => {
+      setStep(newStep as any);
+    });
 
+    const transactionSubscription = viewModel.transaction$.subscribe((newTransaction) => {
+      setTransaction(newTransaction);
+    });
+
+    const errorSubscription = viewModel.errorMessage$.subscribe((error) => {
+      setErrorMessage(error);
+    });
+
+    const loadingSubscription = viewModel.isLoading$.subscribe((loading) => {
+      setIsLoading(loading);
+    });
+
+    // Cleanup: desuscribirse cuando el componente se desmonta
+    return () => {
+      stepSubscription.unsubscribe();
+      transactionSubscription.unsubscribe();
+      errorSubscription.unsubscribe();
+      loadingSubscription.unsubscribe();
+    };
+  }, [viewModel]);
+
+  // Event Handlers que invocan comandos del ViewModel
   const handleLogin = async (cardNumber: string, pinValue: string) => {
-    setGlobalError("")
-    setPin(pinValue);
-    if (presenter) {
-      await presenter.login(cardNumber, pinValue);
-    }
+    await viewModel.login(cardNumber, pinValue);
   }
 
   const handleWithdrawal = async (amount: number) => {
-    setGlobalError("")
-    if (transaction && presenter) {
-      await presenter.withdraw(transaction.cardNumber, pin, amount);
-      setTransaction({
-        ...transaction,
-        amount,
-        date: new Date(),
-      });
-    }
+    await viewModel.withdraw(amount);
   }
 
   const handleNewTransaction = () => {
-    setTransaction(null)
-    setStep("login")
+    viewModel.newTransaction();
   }
 
   return (
     <main className="min-h-screen">
-      {globalError && (
-        <div className="bg-red-100 text-red-700 p-4 text-center font-bold">{globalError}</div>
+      {errorMessage && (
+        <div className="bg-red-100 text-red-700 p-4 text-center font-bold">{errorMessage}</div>
       )}
       {step === "login" && <LoginScreen onLogin={handleLogin} />}
       {step === "withdrawal" && transaction && (
